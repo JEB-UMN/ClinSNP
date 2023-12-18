@@ -5,6 +5,8 @@ Created on Thu Nov  9 15:54:56 2023
 
 @author: administrator
 """
+#Reminder: The ClinSNP folder has to be in your documents folder for it to function correctly.
+#The script should also automatically rename the folder from ClinSNP-main to ClinSNP
 import requests
 import pandas as pd
 import os
