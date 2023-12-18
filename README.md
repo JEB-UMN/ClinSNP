@@ -5,7 +5,7 @@ Welcome to ClinSNP!
 This platform was designed to cross-reference an individual's SNPs with annotated entries in NCBI's ClinVar database, allowing for rapid identification of clinically-relevant alleles for particular phenotypes. 
 
 **Set-up:**  
-After moving the ClinSNP folder to your documents, transfer the SNP data you would like to analyze into the ClinSNP folder. This is typically provided by personal genomics companies as an "xxx.SNPs.vcf" file. Open the ClinSNP.py file in a python interpreter, then run it to perform the analysis. Database download, along with the creation of output files, are performed automatically by the script.
+After downloading the zip file from Github, move the ClinSNP-main folder to your documents, then rename it to ClinSNP. Next, transfer the SNP data you would like to analyze into the ClinSNP folder. This is typically provided by personal genomics companies as an "xxx.SNPs.vcf" file. Open the ClinSNP.py file in a python interpreter, then run it to perform the analysis. Database download, along with the creation of output files, are performed automatically by the script.
 
 **Considerations:**  
 -ClinSNP will likely take several minutes to run, although subsequent analyses after generating an "aligned_SNPs.csv" file should not take more than a few seconds. It also requires a 200 MB database download, which unzips into a 2 GB txt file, although both of these can be deleted after the aligned_SNPs file has been generated.  
