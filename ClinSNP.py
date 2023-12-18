@@ -82,12 +82,12 @@ if aligned_SNPs.empty:
         else:
             print(f"Failed to download database. Status code: {response.status_code}")
     
-    #Import the user's SNP file
+    # Import the user's SNP file
     patient_input = input("Please input a SNP .vcf file. Please ensure that you are in the correct working directory: ")
     print("Initiating alignment. This may take a few minutes.")
     snpfile = open(patient_input,"r")
     
-    #Set up lists for the user's data
+    # Set up lists for the user's data
     sfinfo = []
     header = []
     chrom = []
@@ -102,13 +102,13 @@ if aligned_SNPs.empty:
     bld = []
     zygous = []
     
-    #Read the user's SNP data into each of the lists
+    # Read the user's SNP data into a series of lists
     for line in snpfile:
         line = line.rstrip()
-        if line[0:2] == "##":
+        if line[0:2] == "##": # Lines with SNP file info (sfinfo)
             line = line.lstrip("#")
             sfinfo.append(line)
-        elif line[0:2] == "#C":
+        elif line[0:2] == "#C": # The first column in the SNP data header is #Chr
             header = line.split("\t")
         else:
             line = line.split("\t")
@@ -126,7 +126,7 @@ if aligned_SNPs.empty:
             info.append(line[7])
             form.append(line[8])
             bld.append(line[9])
-            if line[9][0:3] == "1/1":
+            if line[9][0:3] == "1/1": #1:1 indicates homozygous, 0:1 indicates heterozygous
                 zygous.append("Homozygous")
             else:
                 zygous.append("Heterozygous")
@@ -152,24 +152,28 @@ if aligned_SNPs.empty:
             else:
                 ask_ref = input("Invalid reference genome. Please choose GRCh37 or GRCh38: ")
     
-    #Create a dataframe from the clinvar data
+    # Create a dataframe from the ClinVar data
     df = pd.read_csv("variant_summary.txt", sep="\t",low_memory=False)
     
-    #Create a more refined version of the clinvar df that contains only the relevant information
+    # Create a more refined version of the ClinVar df that contains only the relevant information
     cvdf = df[["GeneSymbol","RS# (dbSNP)","Chromosome","PositionVCF","ReferenceAlleleVCF","AlternateAlleleVCF","ClinicalSignificance","PhenotypeList","Assembly"]]
     
-    #Add a column to cvdf indicating its source (for testing purposes, may remove later)
+    # Add a column to cvdf indicating its source, and another for the zygosity (to be defined later)
     cvdf.loc[:, "Source"] = "ClinVar"
     cvdf.loc[:, "Zygosity"] = "N/A"
     
+    # Create a new clean_cvdf containing only the SNPs with the correct reference genome alignment
     right_grch = []
     for index, row in cvdf.iterrows():
         if row["Assembly"] == "GRCh"+str(ref_pref):
             right_grch.append(index)
     clean_cvdf = cvdf.loc[right_grch].copy().reset_index(drop=True)
+    
+    #Remove the assembly column, since it adds to the computational requirement and isn't really relevant to the rest of the analysis
+    #Also put the columns in the desired order
     cleaner_cvdf = clean_cvdf[["GeneSymbol","RS# (dbSNP)","Zygosity","Chromosome","PositionVCF","ReferenceAlleleVCF","AlternateAlleleVCF","ClinicalSignificance","PhenotypeList","Source"]]
     
-    #Assemble DG data into a format that matches the clinvar df
+    # Assemble user data into a format that matches the clinvar dataframe
     user_df = pd.DataFrame({
         "GeneSymbol": "",
         "RS# (dbSNP)": rsid,
@@ -183,16 +187,20 @@ if aligned_SNPs.empty:
         "Source": "User"
     })
     
-    #Combine the dataframes into a single df containing all of the data
+    # Combine the dataframes into a single datagrame containing all of the data
     user_cvdf = pd.concat([cleaner_cvdf,user_df],ignore_index=True)
-
+    
+    # Remove any entries that lack position data
     bad_pos = []
     for index, row in user_cvdf.iterrows():
         if row["PositionVCF"] == -1:
             bad_pos.append(index)
     clean_user_cvdf = user_cvdf.drop(bad_pos).reset_index(drop=True)
+    
+    # Sort the SNPs by chromosome, position, and nucleotide data
     user_cvdf_sorted_pos = clean_user_cvdf.sort_values(by=["Chromosome","PositionVCF","AlternateAlleleVCF","ReferenceAlleleVCF"],ignore_index=True)
     
+    # Create a new dataframe containing aligned pairs of SNPs from ClinVar and the user
     SNP_pairs = []
     for index, row in user_cvdf_sorted_pos.iterrows():
         if index + 1 < len(user_cvdf_sorted_pos) and (
@@ -204,55 +212,42 @@ if aligned_SNPs.empty:
             SNP_pairs.append(index)
             SNP_pairs.append(index+1)
     pre_aligned_SNPs = user_cvdf_sorted_pos.loc[SNP_pairs].copy().reset_index(drop=True)
+    
+    # Assimilate the ClinVar and user data into a single row by writing zygosity data into a ClinVar row, then selecting it
     clin_index = []
     for index, row in pre_aligned_SNPs.iterrows():
         if index + 1 < len(user_cvdf_sorted_pos) and row["Source"] == "ClinVar":
             pre_aligned_SNPs.loc[index, "Zygosity"] = pre_aligned_SNPs.at[index+1, "Zygosity"]
             clin_index.append(index)
+    
+    # If an rsID is unknown, switch the value to N/A, which makes more sense conceptually than -1
     for index, row in pre_aligned_SNPs.iterrows():
         if index + 1 < len(user_cvdf_sorted_pos) and str(row["RS# (dbSNP)"]) == "-1":
             pre_aligned_SNPs.loc[index, "RS# (dbSNP)"] = "N/A"    
+    
+    # Create the aligned_SNPs folder from the ClinVar rows in the pre_aligned_SNPs dataframe
     aligned_SNPs = pre_aligned_SNPs.loc[clin_index].copy().reset_index(drop=True)
+    
+    # Export the aligned_SNPs file to the ClinSNP folder
     aligned_SNPs.to_csv("aligned_SNPs.csv",sep="\t",index=False)
     print("An 'aligned_SNPs.csv' file has been saved to the ClinSNP folder.")
     snpfile.close()
 
-# Specify the path for the new folder
+# Specify the path to create a ClinSNP Analysis folder
 analysis_folder_path = os.path.join(user_home, "Documents", "ClinSNP", "ClinSNP Analysis")
 
-# Check if the folder already exists
+# Check if the ClinSNP Analysis folder already exists
 if not os.path.exists(analysis_folder_path):
-    # Create the new folder
-    os.makedirs(analysis_folder_path)
+    os.makedirs(analysis_folder_path) # Create the new folder
+
+# Create a dataframe containing all of the SNPs that are not annotated as benign
 non_benign_index = []
 for index, row in aligned_SNPs.iterrows():
     if row["Source"] == "ClinVar" and "benign"  not in str(row["ClinicalSignificance"]).lower():
         non_benign_index.append(index)
 non_benign_alignment = aligned_SNPs.loc[non_benign_index].copy().reset_index(drop=True)
 
-def phenotype_analysis():
-    phen = input("Please input a disease, tissue, or phenotype. Type 'no' to stop the analysis: ")
-    if phen.lower() == "no":
-        return phen
-    else:
-        if not prompt_all.empty:
-            phen_index = []
-            for index, row in prompt_all.iterrows():
-                if phen.lower() in str(row["PhenotypeList"]).lower():
-                    phen_index.append(index)
-            filename = phen+"_all"+".csv"
-            phen_snps = prompt_all.loc[phen_index].copy().reset_index(drop=True)
-            phen_snps.to_csv(os.path.join(user_home, "Documents", "ClinSNP", "ClinSNP Analysis",filename),sep="\t",index=False)
-        if not prompt_non_benign.empty:
-            phen_index = []
-            for index, row in prompt_non_benign.iterrows():
-                if phen.lower() in str(row["PhenotypeList"]).lower():
-                    phen_index.append(index)
-            filename = phen+"_non-benign"+".csv"
-            phen_snps = prompt_non_benign.loc[phen_index].copy().reset_index(drop=True)
-            phen_snps.to_csv(os.path.join(user_home, "Documents", "ClinSNP", "ClinSNP Analysis",filename),sep="\t",index=False)
-        print("Analysis successful.")
-        return phen
+# Establish whether the user wants a table of all non-benign SNPs
 print("SNP alignment successful. Follow the remaining prompts to perform a phenotypic analysis. Output files will be saved in a 'ClinSNP Analysis' folder.")
 non_benign_request = input("To rapidly identify phenotypes of interest, you can request a table containing all non-benign SNPs. Would you like to perform this analysis? Please input yes or no: ")
 if non_benign_request.lower() == "no":
@@ -260,27 +255,58 @@ if non_benign_request.lower() == "no":
 else:
     non_benign_alignment.to_csv(os.path.join(user_home, "Documents", "ClinSNP", "ClinSNP Analysis","non_benign_SNPs.csv"),sep="\t",index=False)
     print("Analysis successful.\nProceeding to individual phenotype analysis")
+
+# Establish whether the user wants all relevant SNPs, or just non-benign ones
 function_prompt = input("Would you like to print out all SNPs for your phenotypes of interest, or focus only on non-benign ones? Please input 'all', 'non-benign', or 'both': ")
 while True:
     if function_prompt.lower() == "all":
-        prompt_all = aligned_SNPs.copy()
-        prompt_non_benign = pd.DataFrame()
+        prompt_all = aligned_SNPs.copy() # Fill prompt_all with all SNPs
+        prompt_non_benign = pd.DataFrame() # Make prompt_non_benign empty
         break
     elif function_prompt.lower() == "non-benign":
-        prompt_non_benign = non_benign_alignment.copy()
-        prompt_all = pd.DataFrame()
+        prompt_non_benign = non_benign_alignment.copy() # Fill prompt_non_benign with non_benign SNPs
+        prompt_all = pd.DataFrame() # Make prompt_all empty
         break
     elif function_prompt.lower() == "both":
-        prompt_all = aligned_SNPs.copy()
-        prompt_non_benign = non_benign_alignment.copy()
+        prompt_all = aligned_SNPs.copy() # Fill prompt_all with all SNPs
+        prompt_non_benign = non_benign_alignment.copy() # Fill prompt_non_benign with non_benign SNPs
         break    
     else:
         function_prompt = input("Invalid input. Please input 'all' or 'non-benign': ")
 
+# Define a function to pull out SNP tables for individual phenotypes
+def phenotype_analysis():
+    phen = input("Please input a disease, tissue, or phenotype. Type 'no' to stop the analysis: ")
+    if phen.lower() == "no":
+        return phen # Skips the analysis, since the user said "no"
+    else:
+        if not prompt_all.empty: # If the user wanted a table containing all relevant SNPs
+            phen_index = []
+            for index, row in prompt_all.iterrows(): # Iterate through all SNPs
+                if phen.lower() in str(row["PhenotypeList"]).lower(): # Search the phenotypic annotations for each SNP to identify ones that match the query
+                    phen_index.append(index)
+            # Download a table containing all SNPs pertaining to the desired phenotype
+            filename = phen+"_all"+".csv"
+            phen_snps = prompt_all.loc[phen_index].copy().reset_index(drop=True)
+            phen_snps.to_csv(os.path.join(user_home, "Documents", "ClinSNP", "ClinSNP Analysis",filename),sep="\t",index=False)
+        if not prompt_non_benign.empty: # If the user wanted a table containing only non-benign SNPs
+            phen_index = []
+            for index, row in prompt_non_benign.iterrows(): # iterate through the non-benign SNPs
+                if phen.lower() in str(row["PhenotypeList"]).lower(): # Search the phenotypic annotations for each SNP to identify ones that match the query
+                    phen_index.append(index)
+            # Download a table containing all non_benign SNPs pertaining to the desired phenotype
+            filename = phen+"_non-benign"+".csv"
+            phen_snps = prompt_non_benign.loc[phen_index].copy().reset_index(drop=True)
+            phen_snps.to_csv(os.path.join(user_home, "Documents", "ClinSNP", "ClinSNP Analysis",filename),sep="\t",index=False)
+        print("Analysis successful.")
+        return phen
+
+# Run the individual phenotype analysis until the user inputs "no"
 while True:
     run = phenotype_analysis()
     if str.lower(run) == "no":
         print("Thank you for using ClinSNP!")
         break
 
+# Set the kickback notifications back to the standard settings
 pd.options.mode.chained_assignment = "warn"
