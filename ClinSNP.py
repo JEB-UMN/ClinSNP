@@ -16,6 +16,13 @@ pd.options.mode.chained_assignment = None
 # Get the user's home directory
 user_home = os.path.expanduser("~")
 
+# Rename ClinSNP-main to ClinSNP (because Github is silly lol)
+if os.path.exists(os.path.join(user_home, "Documents", "ClinSNP-main")):
+    extracted_folder_path = os.path.join(user_home, "Documents", "ClinSNP-main")
+    desired_folder_name = 'ClinSNP'
+    new_folder_path = os.path.join(os.path.dirname(extracted_folder_path), desired_folder_name)
+    os.rename(extracted_folder_path, new_folder_path)
+
 # Change the working directory to the ClinSNP folder
 new_working_directory = os.path.join(user_home, "Documents", "ClinSNP")
 os.chdir(new_working_directory)
