@@ -5,7 +5,9 @@ Created on Thu Nov  9 15:54:56 2023
 
 @author: administrator
 """
-#Reminder: Please rename the folder from ClinSNP-main to ClinSNP after downloading.
+#Reminder: Please rename the folder from ClinSNP-main to ClinSNP after downloading. 
+#If you did not do this before opening ClinSNP.py, please remove and reopen it in your interpreter after changing the folder name.
+
 #Reminder: The ClinSNP folder has to be in your documents folder for it to function correctly.
 
 import requests
