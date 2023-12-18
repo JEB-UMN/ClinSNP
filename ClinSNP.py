@@ -5,8 +5,9 @@ Created on Thu Nov  9 15:54:56 2023
 
 @author: administrator
 """
+#Reminder: Please rename the folder from ClinSNP-main to ClinSNP after downloading.
 #Reminder: The ClinSNP folder has to be in your documents folder for it to function correctly.
-#The script should also automatically rename the folder from ClinSNP-main to ClinSNP.
+
 import requests
 import pandas as pd
 import os
@@ -17,13 +18,6 @@ pd.options.mode.chained_assignment = None
 
 # Get the user's home directory
 user_home = os.path.expanduser("~")
-
-# Rename ClinSNP-main to ClinSNP (because Github is silly lol)
-if os.path.exists(os.path.join(user_home, "Documents", "ClinSNP-main")):
-    extracted_folder_path = os.path.join(user_home, "Documents", "ClinSNP-main")
-    desired_folder_name = 'ClinSNP'
-    new_folder_path = os.path.join(os.path.dirname(extracted_folder_path), desired_folder_name)
-    os.rename(extracted_folder_path, new_folder_path)
 
 # Change the working directory to the ClinSNP folder
 new_working_directory = os.path.join(user_home, "Documents", "ClinSNP")
